@@ -1,0 +1,286 @@
+<!doctype html>
+<html class="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdn.tailwindcss.com"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg-main: #f8fafc;
+    --sidebar-bg: #ffffff;
+    --accent: #6366f1;
+    --accent-soft: #eef2ff;
+    --glass: rgba(255, 255, 255, 0.7);
+  }
+
+  body { 
+    background-color: var(--bg-main);
+    background-image: 
+      radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, rgba(168, 85, 247, 0.15) 0px, transparent 50%);
+    font-family: 'Plus Jakarta Sans', sans-serif; 
+    color: #1e293b;
+    overflow: hidden;
+  }
+
+  /* Sidebar Design */
+  .sidebar {
+    width: 280px;
+    background: var(--sidebar-bg);
+    border-right: 1px solid rgba(0,0,0,0.05);
+    box-shadow: 10px 0 30px rgba(0,0,0,0.02);
+    z-index: 20;
+  }
+
+  /* Chat Bubbles */
+  .bubble-user {
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    color: white;
+    padding: 12px 20px;
+    border-radius: 20px 20px 4px 20px;
+    max-width: 75%;
+    font-size: 0.95rem;
+    box-shadow: 0 10px 20px rgba(99, 102, 241, 0.2);
+    white-space: pre-wrap;
+  }
+
+  .bubble-bot {
+    background: var(--glass);
+    backdrop-filter: blur(10px);
+    color: #334155;
+    padding: 12px 20px;
+    border-radius: 20px 20px 20px 4px;
+    max-width: 75%;
+    font-size: 0.95rem;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    white-space: pre-wrap;
+  }
+
+  /* Input Container */
+  .input-wrapper {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    box-shadow: 0 15px 35px rgba(0,0,0,0.08);
+  }
+
+  /* Custom Scrollbar */
+  .scroll::-webkit-scrollbar { width: 5px; }
+  .scroll::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+
+  /* Animations */
+  .fade-in { animation: fadeIn 0.5s ease-out; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .typing-dot { animation: typingBounce 1.2s infinite ease-in-out both; }
+  @keyframes typingBounce {
+    0%, 80%, 100% { transform: scale(0.6); opacity: 0.3; }
+    40% { transform: scale(1); opacity: 1; }
+  }
+
+  /* Logo Animation */
+  .logo-text {
+    background: linear-gradient(to right, #6366f1, #a855f7);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: 800;
+  }
+</style>
+</head>
+
+<body class="h-screen flex">
+
+<aside class="sidebar flex flex-col p-6">
+  
+  <div class="mb-10 px-2">
+    <div class="flex items-center gap-2 mb-1">
+      <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg">L+</div>
+      <span class="text-2xl logo-text">Lifespan+</span>
+    </div>
+    <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest ml-1">Sleep Harmony AI</p>
+  </div>
+
+  <div class="flex items-center gap-3 mb-8 p-3 bg-slate-50 rounded-2xl border border-slate-100">
+    <div id="profile-img-container" class="w-10 h-10 rounded-full overflow-hidden bg-indigo-100 flex items-center justify-center shadow-inner border-2 border-white">
+      <span id="profile-icon" class="text-xl">👤</span>
+    </div>
+    <div class="overflow-hidden">
+      <div id="email" class="text-xs font-bold truncate text-slate-700"></div>
+      <!-- <div class="text-[10px] text-indigo-500 font-semibold">Active Member</div> -->
+    </div>
+  </div>
+
+  <button onclick="newChat()"
+    class="mb-8 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-2xl transition-all duration-300 flex items-center justify-center gap-2 text-sm font-bold shadow-lg shadow-indigo-200">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4" />
+    </svg>
+    New Chat
+  </button>
+
+  <div class="text-[11px] font-bold text-slate-400 mb-4 uppercase tracking-widest px-2">Conversations</div>
+  <div class="flex-1 overflow-y-auto scroll space-y-2" id="historyList"></div>
+
+  <button onclick="logout()"
+    class="mt-4 py-3 text-slate-400 hover:text-red-500 transition-all text-xs font-bold flex items-center gap-2 px-2 border-t border-slate-50">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+    </svg>
+    Logout
+  </button>
+</aside>
+
+<main class="flex-1 flex flex-col relative">
+
+  <!-- <header class="p-4 bg-white/50 backdrop-blur-md border-b border-slate-100 flex justify-between items-center px-8">
+    <div class="flex items-center gap-2">
+      <div class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+      <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">AI Consultant Online</span>
+    </div>
+    <div class="text-xs text-slate-400 font-medium">Lifespan+ Web Version 1.0</div>
+  </header> -->
+
+  <div id="chatBox" class="flex-1 overflow-y-auto p-8 space-y-8 scroll pb-40">
+    <div class="flex flex-col items-center justify-center py-10 text-center space-y-3 opacity-60">
+      <div class="w-16 h-16 bg-white rounded-3xl shadow-xl flex items-center justify-center text-3xl">✨</div>
+      <h2 class="text-xl font-bold text-slate-800">สวัสดีครับ ผมคือผู้ช่วยจาก Lifespan+</h2>
+      <p class="text-sm text-slate-500 max-w-xs">ยินดีที่ได้พบคุณ! วันนี้คุณต้องการปรึกษาเรื่องการนอนหลับอย่างไรดีครับ?</p>
+    </div>
+  </div>
+
+  <div class="absolute bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-slate-50 via-slate-50/90 to-transparent">
+    <div class="max-w-3xl mx-auto input-wrapper rounded-3xl p-2 flex gap-2 items-center">
+      <input id="input"
+        class="flex-1 bg-transparent p-4 outline-none text-sm text-slate-700 placeholder-slate-400 font-medium ml-2"
+        placeholder="Type a message or ask about your sleep cycle..."
+        onkeydown="if(event.key==='Enter') send()" />
+
+      <button onclick="send()"
+        class="bg-indigo-600 hover:bg-indigo-500 text-white w-12 h-12 rounded-2xl transition-all flex items-center justify-center shadow-xl shadow-indigo-200">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+        </svg>
+      </button>
+    </div>
+    <!-- <p class="text-center text-[10px] text-slate-400 mt-4 font-semibold uppercase tracking-wider">Powered by Lifespan+ Sleep Research AI</p> -->
+  </div>
+
+</main>
+
+<script>
+// (ส่วน JavaScript คงเดิมจากที่คุณมี แต่เปลี่ยน CSS Class ให้ตรงกัน)
+const userEmail = localStorage.getItem("email") || "Guest User";
+const userPicture = localStorage.getItem("picture");
+
+document.getElementById("email").innerText = userEmail;
+
+if (userPicture && userPicture !== "null") {
+  document.getElementById("profile-img-container").innerHTML = 
+    `<img src="${userPicture}" class="w-full h-full object-cover">`;
+} else {
+  document.getElementById("profile-img-container").innerHTML = 
+    `<img src="https://ui-avatars.com/api/?name=${userEmail}&background=6366f1&color=fff" class="w-full h-full">`;
+}
+
+async function loadHistory(){
+  try {
+    const res = await fetch(`http://localhost:8000/history?email=${userEmail}`);
+    const data = await res.json();
+    const historyList = document.getElementById("historyList");
+    historyList.innerHTML = "";
+    data.forEach((c) => {
+      const item = document.createElement("div");
+      item.className = "p-3 mx-1 rounded-xl cursor-pointer text-xs font-semibold text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 transition-all truncate border border-transparent hover:border-indigo-100";
+      item.innerText = c.message || "Conversation";
+      item.onclick = () => showChat(c);
+      historyList.appendChild(item);
+    });
+  } catch(e) { console.log("History error"); }
+}
+
+function showChat(chat){
+  const chatBox = document.getElementById("chatBox");
+  chatBox.innerHTML = "";
+  addUser(chat.message);
+  addBot(chat.answer);
+}
+
+function addUser(msg){
+  const chatBox = document.getElementById("chatBox");
+  chatBox.innerHTML += `<div class="flex justify-end fade-in"><div class="bubble-user">${msg}</div></div>`;
+  chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+function addBot(msg){
+  const chatBox = document.getElementById("chatBox");
+  chatBox.innerHTML += `<div class="flex justify-start fade-in mt-2"><div class="bubble-bot">${msg}</div></div>`;
+  chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+function showTyping() {
+  const chatBox = document.getElementById("chatBox");
+  chatBox.innerHTML += `
+    <div id="typing-indicator" class="flex justify-start fade-in mt-2">
+      <div class="bubble-bot flex gap-1.5 items-center px-5 py-5">
+        <div class="w-1.5 h-1.5 bg-indigo-400 rounded-full typing-dot"></div>
+        <div class="w-1.5 h-1.5 bg-indigo-400 rounded-full typing-dot" style="animation-delay: 0.2s"></div>
+        <div class="w-1.5 h-1.5 bg-indigo-400 rounded-full typing-dot" style="animation-delay: 0.4s"></div>
+      </div>
+    </div>`;
+  chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+function removeTyping() {
+  const indicator = document.getElementById("typing-indicator");
+  if (indicator) indicator.remove();
+}
+
+async function send(){
+  const input = document.getElementById("input");
+  const msg = input.value.trim();
+  if(!msg) return;
+
+  addUser(msg);
+  input.value = "";
+  showTyping();
+
+  try {
+    const res = await fetch("http://localhost:8000/chat",{
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body:JSON.stringify({ query: msg, email: userEmail })
+    });
+    const data = await res.json();
+    removeTyping();
+    addBot(data.answer);
+    loadHistory();
+  } catch(e) {
+    removeTyping();
+    addBot("ขออภัย ระบบขัดข้องชั่วคราว");
+  }
+}
+
+function newChat(){
+  document.getElementById("chatBox").innerHTML = `<div class="text-center opacity-40 text-xs mt-10">Starting new session...</div>`;
+  setTimeout(() => document.getElementById("chatBox").innerHTML = "", 500);
+}
+
+function logout(){
+  localStorage.clear();
+  window.location = "login.html";
+}
+
+loadHistory();
+</script>
+
+</body>
+</html>

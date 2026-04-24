@@ -1,0 +1,164 @@
+<!doctype html>
+<html class="light" lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lifespan+ - Login</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet" />
+
+    <style>
+      :root {
+        --bg-main: #f8fafc;
+        --accent: #6366f1;
+      }
+
+      body {
+        font-family: "Plus Jakarta Sans", sans-serif;
+        background-color: var(--bg-main);
+        /* พื้นหลัง Gradient อ่อนๆ ให้เข้ากับหน้า Chat */
+        background-image: 
+          radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.1) 0px, transparent 50%),
+          radial-gradient(at 100% 100%, rgba(168, 85, 247, 0.1) 0px, transparent 50%);
+        min-height: min-content;
+      }
+
+      /* Glass Card แบบสว่าง */
+      .glass-card {
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(20px);
+        border-radius: 32px;
+        border: 1px solid rgba(255, 255, 255, 0.5);
+        box-shadow:
+          0 20px 50px rgba(0, 0, 0, 0.05),
+          inset 0 0 20px rgba(255, 255, 255, 0.3);
+      }
+
+      /* โลโก้ Gradient */
+      .logo-text {
+        background: linear-gradient(to right, #6366f1, #a855f7);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-weight: 800;
+      }
+
+      .fade-in {
+        animation: fadeIn 0.8s ease-out;
+      }
+
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      /* ปรับแต่งปุ่ม Google ให้ดูเนียนไปกับดีไซน์ */
+      #googleBtn {
+        transition: all 0.3s ease;
+        overflow: hidden;
+        display: flex;
+        justify-content: center;
+      }
+    </style>
+  </head>
+
+  <body class="text-slate-800 flex items-center justify-center min-h-screen p-6">
+    <div class="w-full max-w-md fade-in">
+      
+      <div class="text-center mb-10">
+        <!-- <div class="inline-flex items-center justify-center w-16 h-16 bg-white rounded-3xl shadow-xl mb-4 text-3xl">✨</div> -->
+        <h1 class="text-4xl logo-text tracking-tight">Lifespan+</h1>
+        <p class="text-slate-500 font-medium mt-2">Harmony for your sleep cycle</p>
+      </div>
+
+      <div class="glass-card p-10">
+        <div class="mb-8">
+          <h2 class="text-2xl font-bold text-slate-800 text-center">Welcome</h2>
+          <p class="text-slate-400 text-center text-sm mt-1">Please login to continue your session</p>
+        </div>
+
+        <div id="googleBtn" class="min-h-[50px]">
+          </div>
+
+        <!-- <div class="mt-8 text-center">
+          <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Secure Sleep Research AI</p>
+        </div> -->
+      </div>
+
+      <!-- <div class="text-center mt-8">
+        <p class="text-xs text-slate-400 font-medium">© 2024 Lifespan+ Internal System</p>
+      </div> -->
+    </div>
+
+    <script>
+      window.onload = function () {
+        google.accounts.id.initialize({
+          client_id: "911207694982-m9ji32b7029v6a8fpdsnda5457jgsg9g.apps.googleusercontent.com",
+          callback: handleGoogleLogin,
+        });
+
+        google.accounts.id.renderButton(
+          document.getElementById("googleBtn"),
+          { 
+            theme: "outline", 
+            size: "large", 
+            shape: "pill",
+            width: "300"
+          }
+        );
+      };
+
+      function handleGoogleLogin(response) {
+        const payload = JSON.parse(atob(response.credential.split('.')[1]));
+        const pictureUrl = payload.picture;
+
+        fetch("http://localhost:8000/google-login", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            token: response.credential,
+          }),
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            localStorage.setItem("token", data.token);
+            localStorage.setItem("email", data.email);
+            localStorage.setItem("picture", pictureUrl);
+            window.location.href = "chat.html";
+          })
+          .catch((err) => {
+            console.error("Login Error:", err);
+          });
+      }
+
+      // Keep original login function for compatibility
+      async function login(e) {
+        e.preventDefault();
+        const email = document.getElementById("email").value;
+        const password = document.getElementById("password").value;
+        const errorMsg = document.getElementById("errorMsg");
+        errorMsg.innerText = "";
+
+        try {
+          const res = await fetch("http://localhost:8000/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: email, password: password }),
+          });
+          const data = await res.json();
+          if (res.ok) {
+            if (data.token) { localStorage.setItem("token", data.token); }
+            window.location.href = "chat.html";
+          } else {
+            errorMsg.innerText = data.message || "Login failed";
+          }
+        } catch (err) {
+          errorMsg.innerText = "Server error";
+        }
+      }
+    </script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+  </body>
+</html>
