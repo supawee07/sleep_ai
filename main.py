@@ -21,14 +21,16 @@ from google.auth.transport import requests as google_requests
 
 # ===== ENV =====
 load_dotenv()
-API_KEY = os.getenv("API_KEY")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 
 # ===== LLM =====
-url = "https://minddatatech.com/llm-api/v1/chat/completions"
+url = "https://openrouter.ai/api/v1/chat/completions"
 headers = {
-    "Authorization": f"Bearer {API_KEY}",
-    "Content-Type": "application/json"
+    "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+    "Content-Type": "application/json",
+    "HTTP-Referer": "http://localhost:8000", # OpenRouter บังคับใส่ (ใส่เป็น localhost ได้)
+    "X-Title": "Lifespan Plus App"           # ชื่อแอปของคุณ
 }
 
 # ===== RAG =====
@@ -95,6 +97,22 @@ class LoginRequest(BaseModel):
 class ChatRequest(BaseModel):
     query: str
     email: str
+
+
+# ===== ROOT =====
+@app.get("/")
+def root():
+    return {
+        "message": "Lifespan+ Sleep AI API",
+        "endpoints": {
+            "docs": "/docs",
+            "login": "POST /login",
+            "google_login": "POST /google-login",
+            "chat": "POST /chat",
+            "history": "GET /history",
+            "logout": "POST /logout"
+        }
+    }
 
 
 # ===== LOGIN =====
@@ -209,7 +227,7 @@ def chat(data: ChatRequest):
 
 กฎ:
 - ตอบสั้น กระชับ
-- ไม่เกิน 3 ข้อ
+- ไม่เกิน 5 ข้อ
 - ทุกบรรทัดต้องขึ้นต้นด้วย "- "
 - ห้ามใช้ markdown เช่น **, |, ###, ตาราง
 - ห้ามอธิบายยาว
@@ -225,13 +243,59 @@ QUESTION:
 ANSWER:
 """
 
-            res = requests.post(url, headers=headers, json={
-                "model": "gpt-oss:20b",
-                "messages": [{"role": "user", "content": prompt}]
-            })
+            # เพิ่ม timeout เพื่อไม่ให้รอเก้อถ้าระบบฝั่งนู้นค้าง
+            try:
+                res = requests.post(url, headers=headers, json={
+                    "model": "openai/gpt-oss-120b:free",
+                    "messages": [{"role": "user", "content": prompt}]
+                }, timeout=30)
+                
+                # ถ้า API ตอบกลับเป็น Error (เช่น 429) มันจะกระโดดไป except ทันที
+                res.raise_for_status() 
+                
+                # ตัวแปร data_res จะถูกสร้างก็ต่อเมื่อบรรทัดบนผ่านฉลุย
+                data_res = res.json()
+                
+                # 👇 บล็อกนี้ต้องย่อหน้าเข้ามาอยู่ใน try นะครับ
+                if "choices" in data_res:
+                    answer = data_res["choices"][0]["message"]["content"]
+                    
+                    if "ขอโทษ" not in answer:
+                        lines = [line.strip() for line in answer.split("\n") if line.strip()]
+                        clean_lines = []
+                        for line in lines:
+                            line = re.sub(r"[*#|>`\-]+", "", line)
+                            line = line.lstrip("0123456789. ")
+                            if not line.startswith("-"):
+                                line = "- " + line.strip()
+                            clean_lines.append(line)
+                        answer = "\n".join(clean_lines[:3])
+                else:
+                    answer = "ขอโทษครับ ระบบ AI ปลายทางขัดข้องชั่วคราว"
+                    
+            # 👇 เพิ่มตัวดัก Error 429 (Too Many Requests)
+            except requests.exceptions.HTTPError as e:
+                print(f"❌ API Error (ติด Limit OpenRouter): {e}")
+                answer = "ขอโทษครับ ตอนนี้ระบบ AI (ฟรี) มีผู้ใช้งานหนาแน่น โปรดรอสักครู่แล้วลองถามใหม่นะครับ"
+                
+            except requests.exceptions.Timeout:
+                print("❌ ERROR: OpenRouter Timeout")
+                answer = "ขอโทษครับ ระบบใช้เวลานานเกินไป โปรดลองใหม่อีกครั้ง"
+                
+            except Exception as e:
+                print(f"❌ ERROR: {e}")
+                answer = "ขอโทษครับ เกิดข้อผิดพลาดในการเชื่อมต่อกับเซิร์ฟเวอร์"
 
-            data_res = res.json()
-            answer = data_res["choices"][0]["message"]["content"]
+        # === โค้ดด้านล่างอยู่ระดับเดียวกับ try ===
+        if not answer.strip():
+            answer = "- งีบสั้น ๆ 15-20 นาที\n- ลุกเดิน\n- ดื่มน้ำ"
+            # เช็คว่ามีคำว่า 'choices' ส่งกลับมาจริงๆ ก่อนค่อยดึงข้อมูล
+            if "choices" in data_res:
+                answer = data_res["choices"][0]["message"]["content"]
+            else:
+                # ถ้าไม่มี ให้แสดงใน Terminal ว่าเกิดอะไรขึ้น จะได้แก้ถูกจุด
+                print(f"❌ API Error Response: {data_res}")
+                answer = "ขออภัยครับ ตอนนี้ไม่สามารถเชื่อมต่อกับระบบ AI ได้ (API ขัดข้อง)"
 
             # ===== CLEAN BULLET (แก้ตรงนี้นิดเดียว) =====
             if "ขอโทษ" not in answer:
@@ -251,8 +315,6 @@ ANSWER:
 
                 answer = "\n".join(clean_lines[:3])
 
-        if not answer.strip():
-            answer = "- งีบสั้น ๆ 15-20 นาที\n- ลุกเดิน\n- ดื่มน้ำ"
 
     answer = prefix + answer
 

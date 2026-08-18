@@ -108,30 +108,53 @@
         );
       };
 
-      function handleGoogleLogin(response) {
-        const payload = JSON.parse(atob(response.credential.split('.')[1]));
-        const pictureUrl = payload.picture;
+function handleGoogleLogin(response) {
+  try {
+    // 1. แก้ไขการถอดรหัส Token ให้รองรับ Base64Url (ป้องกัน atob error)
+    const base64Url = response.credential.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+    
+    const payload = JSON.parse(jsonPayload);
+    const pictureUrl = payload.picture;
 
-        fetch("http://localhost:8000/google-login", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            token: response.credential,
-          }),
-        })
-          .then((res) => res.json())
-          .then((data) => {
-            localStorage.setItem("token", data.token);
-            localStorage.setItem("email", data.email);
-            localStorage.setItem("picture", pictureUrl);
-            window.location.href = "chat.html";
-          })
-          .catch((err) => {
-            console.error("Login Error:", err);
-          });
-      }
+    // 2. ส่งข้อมูลยืนยันตัวตนไปที่ Backend
+    fetch("http://localhost:8000/google-login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        token: response.credential,
+      }),
+    })
+      .then(async (res) => {
+        // ถ้า Backend คืนค่า Error (เช่น 401 หรือ 500) ให้หยุดการทำงานและโยนเข้า Catch
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            throw new Error(errorData.detail || "Server / Database Error");
+        }
+        return res.json();
+      })
+      .then((data) => {
+        // 3. บันทึกลง LocalStorage และเปลี่ยนไปหน้า chat.html
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("email", data.email);
+        localStorage.setItem("picture", pictureUrl);
+        window.location.href = "chat.html";
+      })
+      .catch((err) => {
+        console.error("Login Error:", err);
+        // แสดง Alert แจ้งผู้ใช้ จะได้รู้ว่าเกิดปัญหาที่จุดไหน
+        alert("เข้าสู่ระบบไม่สำเร็จ: " + err.message + "\n(กรุณาตรวจสอบว่ารัน FastAPI ไว้ที่พอร์ต 8000 หรือไม่)");
+      });
+  } catch (error) {
+    console.error("Token Parsing Error:", error);
+    alert("เกิดข้อผิดพลาดในการอ่านข้อมูลบัญชี Google");
+  }
+}
 
       // Keep original login function for compatibility
       async function login(e) {
